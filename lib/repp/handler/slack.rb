@@ -19,7 +19,7 @@ module Repp
             )
             res = app.call(receive)
             if res.first
-              channel_to_post = res.last&.[](:channel) || receive.channel
+              channel_to_post = res.last.nil? ? receive.channel : res.last[:channel]
               web_client.chat_postMessage(text: res.first, channel: channel_to_post, as_user: true)
             end
           end
