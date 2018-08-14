@@ -5,10 +5,25 @@ module Repp
 
       class SlackReceive < Event::Receive
         interface :channel, :user, :type, :ts
+
+        def bot?; !!@is_bot;  end
+        def bot=(switch); @is_bot = switch; end
       end
 
-      module SlackMessageHandler
-        def self.handle(client, web_client, app)
+      class SlackMessageHandler
+        attr_reader :client, :web_client, :app
+        def initialize(client, web_client, app)
+          @client = client
+          @web_client = web_client
+          @app = app
+        end
+
+        def users(refresh = false)
+          @users = @web_client.list_users.members if refresh
+          @users ||= @web_client.users_list.members
+        end
+
+        def handle
           client.on :message do |data|
             receive = SlackReceive.new(
               body: data.text,
@@ -17,12 +32,18 @@ module Repp
               type: data.type,
               ts: data.ts
             )
+
+            user = users.find { |u| u.id == data.user } || users(true).find { |u| u.id == data.user }
+            receive.bot = (data['subtype'] == 'bot_message' || user.nil? || user['is_bot'])
+
             res = app.call(receive)
             if res.first
               channel_to_post = res.last.nil? ? receive.channel : res.last[:channel]
               web_client.chat_postMessage(text: res.first, channel: channel_to_post, as_user: true)
             end
           end
+
+          client.start!
         end
       end
 
@@ -35,8 +56,8 @@ module Repp
           end
           @client = ::Slack::RealTime::Client.new
           @web_client = ::Slack::Web::Client.new
-          SlackMessageHandler.handle(@client, @web_client, app.new)
-          @client.start!
+          handler = SlackMessageHandler.new(@client, @web_client, app.new)
+          handler.handle
         end
 
         def stop!
