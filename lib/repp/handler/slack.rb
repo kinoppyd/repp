@@ -3,8 +3,10 @@ module Repp
     class Slack
       require 'slack-ruby-client'
 
+      REPLY_REGEXP = /<@(\w+?)>/
+
       class SlackReceive < Event::Receive
-        interface :channel, :user, :type, :ts
+        interface :channel, :user, :type, :ts, :reply_to
 
         def bot?; !!@is_bot;  end
         def bot=(switch); @is_bot = switch; end
@@ -25,12 +27,18 @@ module Repp
 
         def handle
           client.on :message do |data|
+            reply_to = data.text.scan(REPLY_REGEXP).map do |node|
+              user = users.find { |u| u.id == node.first }
+              user ? user.name : nil
+            end
+
             receive = SlackReceive.new(
               body: data.text,
               channel: data.channel,
               user: data.user,
               type: data.type,
-              ts: data.ts
+              ts: data.ts,
+              reply_to: reply_to.compact
             )
 
             user = users.find { |u| u.id == data.user } || users(true).find { |u| u.id == data.user }
