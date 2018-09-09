@@ -27,7 +27,7 @@ module Repp
 
         def handle
           client.on :message do |data|
-            reply_to = data.text.scan(REPLY_REGEXP).map do |node|
+            reply_to = (data.text || "").scan(REPLY_REGEXP).map do |node|
               user = users.find { |u| u.id == node.first }
               user ? user.name : nil
             end
