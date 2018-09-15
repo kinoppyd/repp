@@ -64,7 +64,22 @@ module Repp
           end
           @client = ::Slack::RealTime::Client.new
           @web_client = ::Slack::Web::Client.new
-          handler = SlackMessageHandler.new(@client, @web_client, app.new)
+
+          application = app.new
+          @ticker = Ticker.task(application) do |res|
+            if res.first
+              if res.last && res.last[:dest_channel]
+                channel_to_post = res.last[:dest_channel]
+                @web_client.chat_postMessage(text: res.first, channel: channel_to_post, as_user: true)
+              else
+                message = "Need 'dest_to:' option to every or cron job like:\n" +
+                  "every 1.hour, dest_to: 'channel_name' do"
+                $stderr.puts(message)
+              end
+            end
+          end
+          @ticker.run!
+          handler = SlackMessageHandler.new(@client, @web_client, application)
           handler.handle
         end
 
