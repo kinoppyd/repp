@@ -46,8 +46,9 @@ module Repp
 
             res = app.call(receive)
             if res.first
-              channel_to_post = res.last.nil? ? receive.channel : res.last[:channel]
-              web_client.chat_postMessage(text: res.first, channel: channel_to_post, as_user: true)
+              channel_to_post = res.last && res.last[:channel] || receive.channel
+              attachments = res.last && res.last[:attachments]
+              web_client.chat_postMessage(text: res.first, channel: channel_to_post, as_user: true, attachments: attachments)
             end
           end
 
@@ -70,7 +71,8 @@ module Repp
             if res.first
               if res.last && res.last[:dest_channel]
                 channel_to_post = res.last[:dest_channel]
-                @web_client.chat_postMessage(text: res.first, channel: channel_to_post, as_user: true)
+                attachments = res.last[:attachments]
+                @web_client.chat_postMessage(text: res.first, channel: channel_to_post, as_user: true, attachments: attachments)
               else
                 message = "Need 'dest_to:' option to every or cron job like:\n" +
                   "every 1.hour, dest_to: 'channel_name' do"
