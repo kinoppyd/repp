@@ -21,7 +21,7 @@ module Repp
         end
 
         def users(refresh = false)
-          @users = @web_client.list_users.members if refresh
+          @users = @web_client.users_list.members if refresh
           @users ||= @web_client.users_list.members
         end
 
