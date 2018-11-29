@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.2
+
+- Add ticker to shell handler [Add ticker to shell handler by kinoppyd · Pull Request #8 · kinoppyd/repp](https://github.com/kinoppyd/repp/pull/8)
+
 ## 0.3.1
 
 - Fix wrong slack api method name [#7](https://github.com/kinoppyd/repp/pull/7)
