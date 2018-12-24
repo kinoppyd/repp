@@ -26,34 +26,60 @@ module Repp
         end
 
         def handle
-          client.on :message do |data|
-            reply_to = (data.text || "").scan(REPLY_REGEXP).map do |node|
-              user = users.find { |u| u.id == node.first }
-              user ? user.name : nil
-            end
-
-            from_user = users.find { |u| u.id == data.user } || users(true).find { |u| u.id == data.user }
-
-            receive = SlackReceive.new(
-              body: data.text,
-              channel: data.channel,
-              user: from_user,
-              type: data.type,
-              ts: data.ts,
-              reply_to: reply_to.compact
-            )
-
-            receive.bot = (data['subtype'] == 'bot_message' || from_user.nil? || from_user['is_bot'])
-
-            res = app.call(receive)
-            if res.first
-              channel_to_post = res.last && res.last[:channel] || receive.channel
-              attachments = res.last && res.last[:attachments]
-              web_client.chat_postMessage(text: res.first, channel: channel_to_post, as_user: true, attachments: attachments)
-            end
+          client.on :message do |message|
+            res, receive = process_message(message)
+            process_trigger(res, receive)
           end
 
           client.start!
+        end
+
+        def process_message(message)
+          receive = if message.instance_of?(Event::Trigger)
+                      message
+                    else
+                      reply_to = (message.text || "").scan(REPLY_REGEXP).map do |node|
+                        user = users.find { |u| u.id == node.first }
+                        user ? user.name : nil
+                      end
+
+                      from_user = users.find { |u| u.id == message.user } || users(true).find { |u| u.id == message.user }
+
+                      receive = SlackReceive.new(
+                        body: message.text,
+                        channel: message.channel,
+                        user: from_user,
+                        type: message.type,
+                        ts: message.ts,
+                        reply_to: reply_to.compact
+                      )
+
+                      receive.bot = (message['subtype'] == 'bot_message' || from_user.nil? || from_user['is_bot'])
+                      receive
+                    end
+
+          res = app.call(receive)
+
+          receive = message.original if message.instance_of?(Event::Trigger)
+          if res.first
+            channel_to_post = res.last && res.last[:channel] || receive.channel
+            attachments = res.last && res.last[:attachments]
+            web_client.chat_postMessage(text: res.first, channel: channel_to_post, as_user: true, attachments: attachments)
+          end
+          [res, receive]
+        end
+
+        def process_trigger(res, receive)
+          if res[1][:trigger]
+            payload = res[1][:trigger][:payload]
+            res[1][:trigger][:names].each do |name|
+              trigger = Event::Trigger.new(body: name, payload: payload, original: receive)
+              Thread.new do
+                trigger_res, _ = process_message(trigger)
+                process_trigger(trigger_res, receive)
+              end
+            end
+          end
         end
       end
 

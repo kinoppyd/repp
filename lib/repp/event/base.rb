@@ -21,7 +21,7 @@ module Repp
 
     class Base
       extend Attributes
-      def initialize(params)
+      def initialize(params = {})
         @attributes = {}
         return unless params.respond_to?(:each_pair)
         params.each_pair do |k, v|
