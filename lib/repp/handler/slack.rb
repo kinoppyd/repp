@@ -32,17 +32,18 @@ module Repp
               user ? user.name : nil
             end
 
+            from_user = users.find { |u| u.id == data.user } || users(true).find { |u| u.id == data.user }
+
             receive = SlackReceive.new(
               body: data.text,
               channel: data.channel,
-              user: data.user,
+              user: from_user,
               type: data.type,
               ts: data.ts,
               reply_to: reply_to.compact
             )
 
-            user = users.find { |u| u.id == data.user } || users(true).find { |u| u.id == data.user }
-            receive.bot = (data['subtype'] == 'bot_message' || user.nil? || user['is_bot'])
+            receive.bot = (data['subtype'] == 'bot_message' || from_user.nil? || from_user['is_bot'])
 
             res = app.call(receive)
             if res.first
